@@ -7,17 +7,30 @@
 
 const express = require('express');
 const admin = require('firebase-admin');
-const https = require('https');
+const OneSignal = require('@onesignal/node-onesignal');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ========== CONFIGURACIÓN ==========
 
-// OneSignal credentials (las mismas de tu app)
+// OneSignal credentials
 const ONESIGNAL_APP_ID = '6cb4288a-6ac1-42f3-bb1d-55f96122e01c';
-// REST API Key - La clave completa desde OneSignal Dashboard
 const ONESIGNAL_REST_API_KEY = 'os_v2_app_ns2crctkyfbphoy5kx4wcixadqmco7ekmnmepzug6mtty4bsiivqilmhhn7y672prz2jtz5haf4ngteug2nxpie3ipqvagghpa2y5ya';
+
+// Configurar cliente de OneSignal
+const configuration = OneSignal.createConfiguration({
+  authMethods: {
+    app_key: {
+      tokenProvider: {
+        getToken() {
+          return ONESIGNAL_REST_API_KEY;
+        }
+      }
+    }
+  }
+});
+const oneSignalClient = new OneSignal.DefaultApi(configuration);
 
 // Inicializar Firebase Admin
 // Las credenciales se cargarán desde variables de entorno
@@ -48,53 +61,26 @@ function initializeFirebase() {
 // ========== FUNCIONES HELPER ==========
 
 /**
- * Enviar notificación a OneSignal
+ * Enviar notificación a OneSignal usando el SDK oficial
  */
-function sendOneSignalNotification(playerIds, title, message, data) {
-  return new Promise((resolve, reject) => {
-    const postData = JSON.stringify({
-      app_id: ONESIGNAL_APP_ID,
-      include_player_ids: playerIds,
-      headings: { en: title, es: title },
-      contents: { en: message, es: message },
-      data: data || {},
-      android_channel_id: 'taxi_app_channel',
-      priority: 10,
-    });
+async function sendOneSignalNotification(playerIds, title, message, data) {
+  try {
+    const notification = new OneSignal.Notification();
+    notification.app_id = ONESIGNAL_APP_ID;
+    notification.include_player_ids = playerIds;
+    notification.headings = { en: title, es: title };
+    notification.contents = { en: message, es: message };
+    notification.data = data || {};
+    notification.android_channel_id = 'taxi_app_channel';
+    notification.priority = 10;
 
-    const options = {
-      hostname: 'api.onesignal.com',
-      port: 443,
-      path: '/notifications',
-      method: 'POST',
-      headers: {
-        'accept': 'application/json',
-        'Content-Type': 'application/json',
-        'Authorization': `key ${ONESIGNAL_REST_API_KEY}`,
-      },
-    };
-
-    const req = https.request(options, (res) => {
-      let body = '';
-      res.on('data', (chunk) => {
-        body += chunk;
-      });
-      res.on('end', () => {
-        if (res.statusCode === 200) {
-          resolve(JSON.parse(body));
-        } else {
-          reject(new Error(`OneSignal error: ${body}`));
-        }
-      });
-    });
-
-    req.on('error', (error) => {
-      reject(error);
-    });
-
-    req.write(postData);
-    req.end();
-  });
+    const response = await oneSignalClient.createNotification(notification);
+    console.log(`✅ Notificación enviada exitosamente:`, response);
+    return response;
+  } catch (error) {
+    console.error(`❌ Error al enviar notificación:`, error);
+    throw error;
+  }
 }
 
 // ========== ESCUCHAR CAMBIOS EN FIRESTORE ==========
