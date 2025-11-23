@@ -68,7 +68,7 @@ function sendOneSignalNotification(playerIds, title, message, data) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Basic ${ONESIGNAL_REST_API_KEY}`,
+        'Authorization': `Key ${ONESIGNAL_REST_API_KEY}`,
         'Content-Length': Buffer.byteLength(postData),
       },
     };
@@ -308,4 +308,5 @@ process.on('unhandledRejection', (error) => {
 process.on('uncaughtException', (error) => {
   console.error('❌ Uncaught exception:', error);
 });
+
 
