@@ -16,7 +16,7 @@ const PORT = process.env.PORT || 3000;
 
 // OneSignal credentials (las mismas de tu app)
 const ONESIGNAL_APP_ID = '6cb4288a-6ac1-42f3-bb1d-55f96122e01c';
-const ONESIGNAL_REST_API_KEY = 'os_v2_app_ns2crctkyfbphoy5kx4wcixadt4glg4udfeesemds4fr7rlszuvscf64wuhsigtfib7yzxbi5tgiowpwlrnho6nprubl26d5rljprda';
+const ONESIGNAL_REST_API_KEY = 'os_v2_app_ns2crctkyfbphoy5kx4wcixadttqyst6qh5ekxmvwut4di6z35uvgio7v3dmskwdt7buv5s24tnrjfaertaupwuhi3gfwvm6cq7kp7a';
 
 // Inicializar Firebase Admin
 // Las credenciales se cargarán desde variables de entorno
@@ -308,3 +308,4 @@ process.on('unhandledRejection', (error) => {
 process.on('uncaughtException', (error) => {
   console.error('❌ Uncaught exception:', error);
 });
+
