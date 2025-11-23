@@ -123,7 +123,7 @@ function startFirestoreListeners() {
             // Obtener conductores activos
             const driversSnapshot = await db.collection('users')
               .where('role', '==', 'driver')
-              .where('status', '==', 'active')
+              .where('driverStatus', '==', 'active')
               .get();
 
             const playerIds = [];
@@ -288,3 +288,4 @@ process.on('unhandledRejection', (error) => {
 process.on('uncaughtException', (error) => {
   console.error('❌ Uncaught exception:', error);
 });
+
