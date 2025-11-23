@@ -70,7 +70,7 @@ function sendOneSignalNotification(playerIds, title, message, data) {
       headers: {
         'accept': 'application/json',
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${ONESIGNAL_REST_API_KEY}`,
+        'Authorization': `key ${ONESIGNAL_REST_API_KEY}`,
       },
     };
 
