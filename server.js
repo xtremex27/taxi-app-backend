@@ -120,16 +120,34 @@ function startFirestoreListeners() {
           console.log(`📨 Nuevo viaje detectado: ${tripId}`);
 
           try {
-            // Obtener conductores activos
+            // Obtener todos los conductores activos
             const driversSnapshot = await db.collection('users')
               .where('role', '==', 'driver')
               .where('driverStatus', '==', 'active')
               .get();
 
+            // Obtener todos los viajes activos (accepted, arrived, in_progress)
+            const activeTripsSnapshot = await db.collection('trips')
+              .where('status', 'in', ['accepted', 'arrived', 'in_progress'])
+              .get();
+
+            // Crear un Set con los IDs de conductores que ya están en un viaje
+            const busyDriverIds = new Set();
+            activeTripsSnapshot.forEach(doc => {
+              const driverId = doc.data().driverId;
+              if (driverId) busyDriverIds.add(driverId);
+            });
+
+            // Filtrar solo conductores disponibles (activos y sin viaje)
             const playerIds = [];
             driversSnapshot.forEach(doc => {
+              const driverId = doc.id;
               const playerId = doc.data().oneSignalPlayerId;
-              if (playerId) playerIds.push(playerId);
+
+              // Solo agregar si tiene playerId y NO está ocupado
+              if (playerId && !busyDriverIds.has(driverId)) {
+                playerIds.push(playerId);
+              }
             });
 
             if (playerIds.length > 0) {
@@ -139,7 +157,9 @@ function startFirestoreListeners() {
                 `${tripData.passengerName} solicita un viaje desde ${tripData.pickupAddress}`,
                 { tripId, type: 'new_trip_request' }
               );
-              console.log(`✅ Notificación enviada a ${playerIds.length} conductores`);
+              console.log(`✅ Notificación enviada a ${playerIds.length} conductores disponibles (${busyDriverIds.size} conductores ocupados)`);
+            } else {
+              console.log(`⚠️ No hay conductores disponibles (${driversSnapshot.size} activos, ${busyDriverIds.size} ocupados)`);
             }
           } catch (error) {
             console.error('❌ Error enviando notificación:', error);
@@ -288,4 +308,3 @@ process.on('unhandledRejection', (error) => {
 process.on('uncaughtException', (error) => {
   console.error('❌ Uncaught exception:', error);
 });
-
