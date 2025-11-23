@@ -16,7 +16,8 @@ const PORT = process.env.PORT || 3000;
 
 // OneSignal credentials (las mismas de tu app)
 const ONESIGNAL_APP_ID = '6cb4288a-6ac1-42f3-bb1d-55f96122e01c';
-const ONESIGNAL_REST_API_KEY = 'tqyst6qh5ekxmvwut4di6z35u';
+// REST API Key - La clave completa desde OneSignal Dashboard
+const ONESIGNAL_REST_API_KEY = 'os_v2_app_ns2crctkyfbphoy5kx4wcixadqmco7ekmnmepzug6mtty4bsiivqilmhhn7y672prz2jtz5haf4ngteug2nxpie3ipqvagghpa2y5ya';
 
 // Inicializar Firebase Admin
 // Las credenciales se cargarán desde variables de entorno
@@ -62,14 +63,14 @@ function sendOneSignalNotification(playerIds, title, message, data) {
     });
 
     const options = {
-      hostname: 'onesignal.com',
+      hostname: 'api.onesignal.com',
       port: 443,
-      path: '/api/v1/notifications',
+      path: '/notifications',
       method: 'POST',
       headers: {
+        'accept': 'application/json',
         'Content-Type': 'application/json',
-        'Authorization': `Basic ${ONESIGNAL_REST_API_KEY}`,
-        'Content-Length': Buffer.byteLength(postData),
+        'Authorization': `Bearer ${ONESIGNAL_REST_API_KEY}`,
       },
     };
 
