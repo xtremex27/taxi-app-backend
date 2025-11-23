@@ -62,13 +62,13 @@ function sendOneSignalNotification(playerIds, title, message, data) {
     });
 
     const options = {
-      hostname: 'onesignal.com',
+      hostname: 'api.onesignal.com',
       port: 443,
-      path: '/api/v1/notifications',
+      path: '/notifications',
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Key ${ONESIGNAL_REST_API_KEY}`,
+        'Authorization': `Bearer ${ONESIGNAL_REST_API_KEY}`,
         'Content-Length': Buffer.byteLength(postData),
       },
     };
@@ -308,5 +308,3 @@ process.on('unhandledRejection', (error) => {
 process.on('uncaughtException', (error) => {
   console.error('❌ Uncaught exception:', error);
 });
-
-
