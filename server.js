@@ -1,22 +1,15 @@
 /**
  * Backend para Taxi App Peru
- * Escucha cambios en Firestore y envía notificaciones con OneSignal
+ * Escucha cambios en Firestore y envía notificaciones con FCM
  *
  * Desplegado en Render.com (GRATIS)
  */
 
 const express = require('express');
 const admin = require('firebase-admin');
-const https = require('https');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-
-// ========== CONFIGURACIÓN ==========
-
-// OneSignal credentials
-const ONESIGNAL_APP_ID = '6cb4288a-6ac1-42f3-bb1d-55f96122e01c';
-const ONESIGNAL_REST_API_KEY = 'os_v2_app_ns2crctkyfbphoy5kx4wcixadsxumrqkizneplfqjflde6pojnf7hyegz2mlcc466yh3lqbybvqhrb242ws3znhekzc6efdusgh45ea';
 
 // Inicializar Firebase Admin
 // Las credenciales se cargarán desde variables de entorno
@@ -47,58 +40,48 @@ function initializeFirebase() {
 // ========== FUNCIONES HELPER ==========
 
 /**
- * Enviar notificación a OneSignal usando HTTPS directamente
+ * Enviar notificación usando Firebase Cloud Messaging (FCM)
  */
-async function sendOneSignalNotification(playerIds, title, message, data) {
-  return new Promise((resolve, reject) => {
-    const payload = JSON.stringify({
-      app_id: ONESIGNAL_APP_ID,
-      include_player_ids: playerIds,
-      headings: { en: title, es: title },
-      contents: { en: message, es: message },
-      data: data || {},
-      android_channel_id: 'taxi_app_channel',
-      priority: 10
-    });
+async function sendFCMNotification(fcmTokens, title, body, data) {
+  try {
+    if (!fcmTokens || fcmTokens.length === 0) {
+      console.log('⚠️ No hay tokens FCM para enviar notificación');
+      return;
+    }
 
-    const options = {
-      hostname: 'onesignal.com',
-      port: 443,
-      path: '/api/v1/notifications',
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Authorization': `Key ${ONESIGNAL_REST_API_KEY}`,
-        'Content-Length': Buffer.byteLength(payload)
-      }
+    const message = {
+      notification: {
+        title: title,
+        body: body
+      },
+      data: data || {},
+      android: {
+        priority: 'high',
+        notification: {
+          channelId: 'taxi_app_channel',
+          sound: 'default'
+        }
+      },
+      tokens: fcmTokens
     };
 
-    const req = https.request(options, (res) => {
-      let responseBody = '';
+    const response = await admin.messaging().sendEachForMulticast(message);
 
-      res.on('data', (chunk) => {
-        responseBody += chunk;
-      });
+    console.log(`✅ Notificación FCM enviada: ${response.successCount} exitosas, ${response.failureCount} fallidas`);
 
-      res.on('end', () => {
-        if (res.statusCode === 200) {
-          console.log('✅ Notificación enviada exitosamente:', responseBody);
-          resolve(JSON.parse(responseBody));
-        } else {
-          console.error(`❌ Error ${res.statusCode}:`, responseBody);
-          reject(new Error(`OneSignal error ${res.statusCode}: ${responseBody}`));
+    if (response.failureCount > 0) {
+      response.responses.forEach((resp, idx) => {
+        if (!resp.success) {
+          console.error(`❌ Error enviando a token ${idx}:`, resp.error);
         }
       });
-    });
+    }
 
-    req.on('error', (error) => {
-      console.error('❌ Error en solicitud HTTPS:', error);
-      reject(error);
-    });
-
-    req.write(payload);
-    req.end();
-  });
+    return response;
+  } catch (error) {
+    console.error('❌ Error al enviar notificación FCM:', error);
+    throw error;
+  }
 }
 
 // ========== ESCUCHAR CAMBIOS EN FIRESTORE ==========
@@ -144,25 +127,25 @@ function startFirestoreListeners() {
             });
 
             // Filtrar solo conductores disponibles (activos y sin viaje)
-            const playerIds = [];
+            const fcmTokens = [];
             driversSnapshot.forEach(doc => {
               const driverId = doc.id;
-              const playerId = doc.data().oneSignalPlayerId;
+              const fcmToken = doc.data().fcmToken;
 
-              // Solo agregar si tiene playerId y NO está ocupado
-              if (playerId && !busyDriverIds.has(driverId)) {
-                playerIds.push(playerId);
+              // Solo agregar si tiene fcmToken y NO está ocupado
+              if (fcmToken && !busyDriverIds.has(driverId)) {
+                fcmTokens.push(fcmToken);
               }
             });
 
-            if (playerIds.length > 0) {
-              await sendOneSignalNotification(
-                playerIds,
+            if (fcmTokens.length > 0) {
+              await sendFCMNotification(
+                fcmTokens,
                 'Nueva solicitud de viaje',
                 `${tripData.passengerName} solicita un viaje desde ${tripData.pickupAddress}`,
                 { tripId, type: 'new_trip_request' }
               );
-              console.log(`✅ Notificación enviada a ${playerIds.length} conductores disponibles (${busyDriverIds.size} conductores ocupados)`);
+              console.log(`✅ Notificación enviada a ${fcmTokens.length} conductores disponibles (${busyDriverIds.size} conductores ocupados)`);
             } else {
               console.log(`⚠️ No hay conductores disponibles (${driversSnapshot.size} activos, ${busyDriverIds.size} ocupados)`);
             }
@@ -194,9 +177,9 @@ function startFirestoreListeners() {
             // Obtener datos del pasajero
             const passengerDoc = await db.collection('users').doc(passengerId).get();
             const passengerData = passengerDoc.data();
-            const playerId = passengerData?.oneSignalPlayerId;
+            const fcmToken = passengerData?.fcmToken;
 
-            if (!playerId) continue;
+            if (!fcmToken) continue;
 
             let title = '';
             let body = '';
@@ -232,8 +215,8 @@ function startFirestoreListeners() {
                 continue;
             }
 
-            await sendOneSignalNotification(
-              [playerId],
+            await sendFCMNotification(
+              [fcmToken],
               title,
               body,
               { tripId, type }
@@ -313,3 +296,4 @@ process.on('unhandledRejection', (error) => {
 process.on('uncaughtException', (error) => {
   console.error('❌ Uncaught exception:', error);
 });
+
