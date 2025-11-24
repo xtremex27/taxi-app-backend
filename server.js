@@ -7,7 +7,7 @@
 
 const express = require('express');
 const admin = require('firebase-admin');
-const OneSignal = require('@onesignal/node-onesignal');
+const https = require('https');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -17,20 +17,6 @@ const PORT = process.env.PORT || 3000;
 // OneSignal credentials
 const ONESIGNAL_APP_ID = '6cb4288a-6ac1-42f3-bb1d-55f96122e01c';
 const ONESIGNAL_REST_API_KEY = 'os_v2_app_ns2crctkyfbphoy5kx4wcixadqmco7ekmnmepzug6mtty4bsiivqilmhhn7y672prz2jtz5haf4ngteug2nxpie3ipqvagghpa2y5ya';
-
-// Configurar cliente de OneSignal
-const configuration = OneSignal.createConfiguration({
-  authMethods: {
-    app_key: {
-      tokenProvider: {
-        getToken() {
-          return ONESIGNAL_REST_API_KEY;
-        }
-      }
-    }
-  }
-});
-const oneSignalClient = new OneSignal.DefaultApi(configuration);
 
 // Inicializar Firebase Admin
 // Las credenciales se cargarán desde variables de entorno
@@ -61,26 +47,58 @@ function initializeFirebase() {
 // ========== FUNCIONES HELPER ==========
 
 /**
- * Enviar notificación a OneSignal usando el SDK oficial
+ * Enviar notificación a OneSignal usando HTTPS directamente
  */
 async function sendOneSignalNotification(playerIds, title, message, data) {
-  try {
-    const notification = new OneSignal.Notification();
-    notification.app_id = ONESIGNAL_APP_ID;
-    notification.include_player_ids = playerIds;
-    notification.headings = { en: title, es: title };
-    notification.contents = { en: message, es: message };
-    notification.data = data || {};
-    notification.android_channel_id = 'taxi_app_channel';
-    notification.priority = 10;
+  return new Promise((resolve, reject) => {
+    const payload = JSON.stringify({
+      app_id: ONESIGNAL_APP_ID,
+      include_player_ids: playerIds,
+      headings: { en: title, es: title },
+      contents: { en: message, es: message },
+      data: data || {},
+      android_channel_id: 'taxi_app_channel',
+      priority: 10
+    });
 
-    const response = await oneSignalClient.createNotification(notification);
-    console.log(`✅ Notificación enviada exitosamente:`, response);
-    return response;
-  } catch (error) {
-    console.error(`❌ Error al enviar notificación:`, error);
-    throw error;
-  }
+    const options = {
+      hostname: 'onesignal.com',
+      port: 443,
+      path: '/api/v1/notifications',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Authorization': `Basic ${ONESIGNAL_REST_API_KEY}`,
+        'Content-Length': Buffer.byteLength(payload)
+      }
+    };
+
+    const req = https.request(options, (res) => {
+      let responseBody = '';
+
+      res.on('data', (chunk) => {
+        responseBody += chunk;
+      });
+
+      res.on('end', () => {
+        if (res.statusCode === 200) {
+          console.log('✅ Notificación enviada exitosamente:', responseBody);
+          resolve(JSON.parse(responseBody));
+        } else {
+          console.error(`❌ Error ${res.statusCode}:`, responseBody);
+          reject(new Error(`OneSignal error ${res.statusCode}: ${responseBody}`));
+        }
+      });
+    });
+
+    req.on('error', (error) => {
+      console.error('❌ Error en solicitud HTTPS:', error);
+      reject(error);
+    });
+
+    req.write(payload);
+    req.end();
+  });
 }
 
 // ========== ESCUCHAR CAMBIOS EN FIRESTORE ==========
