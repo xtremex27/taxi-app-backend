@@ -16,7 +16,7 @@ const PORT = process.env.PORT || 3000;
 
 // OneSignal credentials
 const ONESIGNAL_APP_ID = '6cb4288a-6ac1-42f3-bb1d-55f96122e01c';
-const ONESIGNAL_REST_API_KEY = 'os_v2_app_ns2crctkyfbphoy5kx4wcixadqmco7ekmnmepzug6mtty4bsiivqilmhhn7y672prz2jtz5haf4ngteug2nxpie3ipqvagghpa2y5ya';
+const ONESIGNAL_REST_API_KEY = 'os_v2_app_ns2crctkyfbphoy5kx4wcixadsxumrqkizneplfqjflde6pojnf7hyegz2mlcc466yh3lqbybvqhrb242ws3znhekzc6efdusgh45ea';
 
 // Inicializar Firebase Admin
 // Las credenciales se cargarán desde variables de entorno
